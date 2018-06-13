@@ -37,7 +37,7 @@ path = pathlib.Path("./result_{0}/result_{1}/preview".format(number, strings))
 # store image to use as frame to array "imgs"
 imgs = []
 for epoch in range(1, args.epoch + 1):
-    img = Image.open(path / "{}epoch.jpg".format(epoch))
+    img = Image.open(path / "{}epoch_kde.jpg".format(epoch))
     imgs.append(img)
 
 # make gif
