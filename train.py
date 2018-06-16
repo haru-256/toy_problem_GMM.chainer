@@ -5,6 +5,7 @@ from generator import Generator
 from utils import out_generated
 from utils import plot_kde_data, plot_kde_data_real, plot_scatter_data, plot_scatter_real_data
 from dataset import GmmDataset
+import numpy as np
 import argparse
 import pathlib
 
@@ -80,8 +81,12 @@ if __name__ == '__main__':
         print("# Discriminator applied matching")
         from discriminator_fm import Discriminator
         from updater_fm import DCGANUpdater
-
     print('')
+
+    # fix random
+    np.random.seed(seed)
+    if chainer.backends.cuda.available:
+        chainer.backends.cuda.cupy.random.seed(seed)
 
     # Set up a neural network to train
     gen = Generator(n_hidden=n_hidden)
@@ -94,7 +99,7 @@ if __name__ == '__main__':
         dis.to_gpu()
 
     # Setup an optimizer
-    def make_optimizer(model, alpha=0.0002, beta1=0.5):
+    def make_optimizer(model, alpha=1e-4, beta1=0.5):
         optimizer = chainer.optimizers.Adam(alpha=alpha, beta1=beta1)
         optimizer.setup(model)
         # optimizer.add_hook(chainer.optimizer.WeightDecay(0.0001), 'hook_dec')
@@ -156,7 +161,7 @@ if __name__ == '__main__':
             file_name='loss_{0}_{1}.jpg'.format(number, seed),
             grid=True))
     trainer.extend(out_generated(
-        gen, seed, out, radius=args.radius, datasize=10000))
+        gen, seed+10, out, radius=args.radius, datasize=10000))
 
     # Run the training
     trainer.run()

@@ -31,7 +31,7 @@ class Discriminator(chainer.Chain):
             self.l0 = L.Linear(in_size=None, out_size=128, initialW=w)
             self.l1 = L.Linear(in_size=None, out_size=1, initialW=w)
 
-            self.bn1 = L.BatchNormalization(size=128)
+            # self.bn1 = L.BatchNormalization(size=128)
 
     def __call__(self, x):
         h = F.relu(self.l0(x))

@@ -38,8 +38,8 @@ class Generator(chainer.Chain):
             self.l1 = L.Linear(in_size=None, out_size=128,
                                initialW=w, nobias=True)
             self.l2 = L.Linear(in_size=None, out_size=2, initialW=w)
-            self.bn0 = L.BatchNormalization(size=128)
-            self.bn1 = L.BatchNormalization(size=128)
+            #self.bn0 = L.BatchNormalization(size=128)
+            #self.bn1 = L.BatchNormalization(size=128)
 
     def make_hidden(self, batchsize=100):
         """
@@ -52,8 +52,10 @@ class Generator(chainer.Chain):
                         .astype(np.float32)
 
     def __call__(self, z):
-        h = F.relu(self.bn0(self.l0(z)))
-        h = F.relu(self.bn1(self.l1(h)))
+        # h = F.relu(self.bn0(self.l0(z)))
+        h = F.relu(self.l0(z))
+        # h = F.relu(self.bn1(self.l1(h)))
+        h = F.relu(self.l1(h))
         x = self.l2(h)  # linear projection to 2
 
         return x
