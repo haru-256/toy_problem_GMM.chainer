@@ -13,7 +13,7 @@ if __name__ == '__main__':
     # パーサーを作る
     parser = argparse.ArgumentParser(
         prog='train',  # プログラム名
-        usage='train DCGAN',  # プログラムの利用方法
+        usage='train GAN for toy-problem',  # プログラムの利用方法
         description='description',  # 引数のヘルプの前に表示
         epilog='end',  # 引数のヘルプの後で表示
         add_help=True,  # -h/–help オプションの追加
@@ -22,24 +22,24 @@ if __name__ == '__main__':
     # 引数の追加
     parser.add_argument('-s', '--seed', help='seed',
                         type=int, required=True)
-    parser.add_argument('-ds', '--datasize', help='data size. defalut value is 10000',
+    parser.add_argument('-ds', '--datasize', help='data size. default value is 10000',
                         type=int, default=10000)
     parser.add_argument('-n', '--number', help='the number of experiments.',
                         type=int, required=True)
-    parser.add_argument('--hidden', help='the number of codes of Generator.',
+    parser.add_argument('--hidden', help='the number of codes of Generator. default value is 100',
                         type=int, default=100)
-    parser.add_argument('-e', '--epoch', help='the number of epoch, defalut value is 100',
+    parser.add_argument('-e', '--epoch', help='the number of epoch, default value is 100',
                         type=int, default=100)
-    parser.add_argument('-bs', '--batch_size', help='batch size. defalut value is 128',
-                        type=int, default=120)
-    parser.add_argument('-g', '--gpu', help='specify gpu by this number. defalut value is 0',
+    parser.add_argument('-bs', '--batch_size', help='batch size. default value is 128',
+                        type=int, default=128)
+    parser.add_argument('-g', '--gpu', help='specify gpu by this number. default value is 0',
                         choices=[-1, 0, 1], type=int, default=0)
     parser.add_argument('-dis', '--discriminator',
                         help='specify discriminator by this number. any of following;'
-                        ' 0: original, 1: minibatch discriminatio, 2: feature matching. defalut value is 0',
+                        ' 0: original, 1: minibatch discriminatio, 2: feature matching. default value is 0',
                         choices=[0, 1, 2], type=int, default=0)
     parser.add_argument('-r', '--radius',
-                        help='specify radius of GMM by this number. ', type=int, default=2)
+                        help='specify radius of GMM by this number. default value is 2 ', type=int, default=2)
     parser.add_argument('-V', '--version', version='%(prog)s 1.0.0',
                         action='version',
                         default=False)
@@ -159,7 +159,7 @@ if __name__ == '__main__':
             ['gen/loss', 'dis/loss'],
             x_key='epoch',
             file_name='loss_{0}_{1}.jpg'.format(number, seed),
-            grid=True))
+            grid=False))
     trainer.extend(out_generated(
         gen, seed+10, out, radius=args.radius, datasize=10000))
 
