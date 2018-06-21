@@ -34,12 +34,16 @@ if __name__ == '__main__':
                         type=int, default=128)
     parser.add_argument('-g', '--gpu', help='specify gpu by this number. default value is 0',
                         choices=[-1, 0, 1], type=int, default=0)
+    parser.add_argument('-bn', '--batch_norm', help="whether apply BN to Generator. if this argument didn't specify, BN wasn't apply to Generator.",
+                        action='store_true')
     parser.add_argument('-dis', '--discriminator',
                         help='specify discriminator by this number. any of following;'
                         ' 0: original, 1: minibatch discriminatio, 2: feature matching. default value is 0',
                         choices=[0, 1, 2], type=int, default=0)
     parser.add_argument('-r', '--radius',
                         help='specify radius of GMM by this number. default value is 2 ', type=int, default=2)
+    parser.add_argument('-lam',
+                        help='specify lambda of feature matching Loss by this number. default value is 0, so don\'t use feature matching ', type=int, default=0)
     parser.add_argument('-V', '--version', version='%(prog)s 1.0.0',
                         action='version',
                         default=False)
@@ -61,11 +65,17 @@ if __name__ == '__main__':
     if not out.exists():
         out.mkdir()
 
+    # 引数(ハイパーパラメータの設定)の書き出し
+    with open(out / "args.txt", "w") as f:
+        f.write(str(args))
+
     print('GPU: {}'.format(gpu))
     print('# Dara size: {}'.format(datasize))
     print('# Minibatch-size: {}'.format(batch_size))
     print('# n_hidden: {}'.format(n_hidden))
+    print('# BN: {}'.format(args.batch_norm))
     print('# epoch: {}'.format(epoch))
+    print('# lambda: {}'.format(args.lam))
     print('# out: {}'.format(out))
 
     # import discrimination
@@ -78,7 +88,7 @@ if __name__ == '__main__':
         from discriminator_md import Discriminator
         from updater import DCGANUpdater
     elif args.discriminator == 2:
-        print("# Discriminator applied matching")
+        print("# Discriminator applied feature matching")
         from discriminator_fm import Discriminator
         from updater_fm import DCGANUpdater
     print('')
@@ -89,7 +99,7 @@ if __name__ == '__main__':
         chainer.backends.cuda.cupy.random.seed(seed)
 
     # Set up a neural network to train
-    gen = Generator(n_hidden=n_hidden)
+    gen = Generator(n_hidden=n_hidden, isBN=args.batch_norm)
     dis = Discriminator()
 
     if gpu >= 0:
@@ -119,15 +129,27 @@ if __name__ == '__main__':
     train_iter = chainer.iterators.SerialIterator(dataset, batch_size)
 
     # Set up a trainer
-    updater = DCGANUpdater(
-        models=(gen, dis),
-        iterator=train_iter,
-        optimizer={
-            'gen': opt_gen,
-            'dis': opt_dis
-        },
-        scale=args.radius,
-        device=gpu)
+    if args.discriminator == 2:
+        updater = DCGANUpdater(
+            models=(gen, dis),
+            iterator=train_iter,
+            optimizer={
+                'gen': opt_gen,
+                'dis': opt_dis
+            },
+            scale=args.radius,
+            device=gpu,
+            lam=args.lam)
+    else:
+        updater = DCGANUpdater(
+            models=(gen, dis),
+            iterator=train_iter,
+            optimizer={
+                'gen': opt_gen,
+                'dis': opt_dis
+            },
+            scale=args.radius,
+            device=gpu)
     trainer = training.Trainer(updater, (epoch, 'epoch'), out=out)
 
     snapshot_interval = (5, 'epoch')

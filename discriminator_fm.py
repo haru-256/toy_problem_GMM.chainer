@@ -35,29 +35,14 @@ class Discriminator(chainer.Chain):
             w = chainer.initializers.Normal(wscale)
 
             # register layer with variable
-            self.c0 = L.Convolution2D(
-                in_channels=in_ch,
-                out_channels=64,
-                ksize=4,
-                stride=2,
-                pad=1,
-                initialW=w)
-            self.c1 = L.Convolution2D(
-                in_channels=None,
-                out_channels=128,
-                ksize=4,
-                stride=2,
-                pad=1,
-                initialW=w,
-                nobias=True)
-            self.l2 = L.Linear(in_size=None, out_size=1, initialW=w)
+            self.l0 = L.Linear(in_size=None, out_size=128, initialW=w)
+            self.l1 = L.Linear(in_size=None, out_size=1, initialW=w)
 
             # self.bn1 = L.BatchNormalization(size=128)
 
     def __call__(self, x):
-        h = F.leaky_relu(self.c0(x))
-        h = F.leaky_relu(self.c1(h))
-        y = self.l2(h)  # conv->linear では勝手にreshapeが適用される
+        h = F.leaky_relu(self.l0(x))
+        y = self.l1(h)  # conv->linear では勝手にreshapeが適用される
 
         return y, h  # Also return feature
 

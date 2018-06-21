@@ -13,6 +13,7 @@ class DCGANUpdater(chainer.training.StandardUpdater):
     def __init__(self, *args, **kwargs):
         self.gen, self.dis = kwargs.pop("models")  # extract model
         self.lam = kwargs.pop("lam")
+        self.scale = kwargs.pop('scale')
         super(DCGANUpdater, self).__init__(*args,
                                            **kwargs)  # StandardUpdaterを呼ぶ
 
@@ -31,7 +32,6 @@ class DCGANUpdater(chainer.training.StandardUpdater):
 
         x_real = Variable(self.converter(
             batch, self.device))  # self.converter() is concat_example()
-        x_real = (x_real - 127.5) / 127.5
 
         xp = chainer.backends.cuda.get_array_module(
             x_real.data)  # return cupy or numpy based on type of x_real.data
@@ -52,12 +52,12 @@ class DCGANUpdater(chainer.training.StandardUpdater):
 
         # dis, genをそれぞれ最適化
         dis_optimizer.update(self.loss_dis, dis, y_fake, y_real)
-        """
-        gen_optimizer.update(self.loss_gen_fm, gen,
-                             real_fm_expected, fake_fm_expected)  # gen_fmのLossを使用
-        """
-        gen_optimizer.update(self.loss_gen, gen,
-                             y_fake, real_fm_expected, fake_fm_expected, self.lam)  # fm + original
+        if not self.lam == 0:
+            gen_optimizer.update(self.loss_gen, gen,
+                                 y_fake, real_fm_expected, fake_fm_expected, self.lam)  # fm + original
+        else:
+            gen_optimizer.update(self.loss_gen_fm, gen,
+                                 real_fm_expected, fake_fm_expected)  # gen_fmのLossを使用
 
     def loss_dis(self, dis, y_fake, y_real):
         batchsize = len(y_fake)
@@ -79,6 +79,6 @@ class DCGANUpdater(chainer.training.StandardUpdater):
 
     def loss_gen_fm(self, gen, real_fm_expected, fake_fm_expected):
         fm_loss = F.mean_squared_error(real_fm_expected, fake_fm_expected)
-        chainer.report({'fm_loss': fm_loss}, gen)  # gen/loss でアクセス可能
+        chainer.report({'loss': fm_loss}, gen)  # gen/loss でアクセス可能
 
         return fm_loss
