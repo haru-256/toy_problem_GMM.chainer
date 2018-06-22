@@ -5,6 +5,7 @@ from generator import Generator
 from utils import out_generated
 from utils import plot_kde_data, plot_kde_data_real, plot_scatter_data, plot_scatter_real_data
 from dataset import GmmDataset
+import numpy as np
 import argparse
 import pathlib
 
@@ -12,7 +13,7 @@ if __name__ == '__main__':
     # パーサーを作る
     parser = argparse.ArgumentParser(
         prog='train',  # プログラム名
-        usage='train DCGAN',  # プログラムの利用方法
+        usage='train GAN for toy-problem',  # プログラムの利用方法
         description='description',  # 引数のヘルプの前に表示
         epilog='end',  # 引数のヘルプの後で表示
         add_help=True,  # -h/–help オプションの追加
@@ -21,24 +22,28 @@ if __name__ == '__main__':
     # 引数の追加
     parser.add_argument('-s', '--seed', help='seed',
                         type=int, required=True)
-    parser.add_argument('-ds', '--datasize', help='data size. defalut value is 10000',
+    parser.add_argument('-ds', '--datasize', help='data size. default value is 10000',
                         type=int, default=10000)
     parser.add_argument('-n', '--number', help='the number of experiments.',
                         type=int, required=True)
-    parser.add_argument('--hidden', help='the number of codes of Generator.',
+    parser.add_argument('--hidden', help='the number of codes of Generator. default value is 100',
                         type=int, default=100)
-    parser.add_argument('-e', '--epoch', help='the number of epoch, defalut value is 100',
+    parser.add_argument('-e', '--epoch', help='the number of epoch, default value is 100',
                         type=int, default=100)
-    parser.add_argument('-bs', '--batch_size', help='batch size. defalut value is 128',
-                        type=int, default=120)
-    parser.add_argument('-g', '--gpu', help='specify gpu by this number. defalut value is 0',
+    parser.add_argument('-bs', '--batch_size', help='batch size. default value is 128',
+                        type=int, default=128)
+    parser.add_argument('-g', '--gpu', help='specify gpu by this number. default value is 0',
                         choices=[-1, 0, 1], type=int, default=0)
+    parser.add_argument('-bn', '--batch_norm', help="whether apply BN to Generator. if this argument didn't specify, BN wasn't apply to Generator.",
+                        action='store_true')
     parser.add_argument('-dis', '--discriminator',
                         help='specify discriminator by this number. any of following;'
-                        ' 0: original, 1: minibatch discriminatio, 2: feature matching. defalut value is 0',
+                        ' 0: original, 1: minibatch discriminatio, 2: feature matching. default value is 0',
                         choices=[0, 1, 2], type=int, default=0)
     parser.add_argument('-r', '--radius',
-                        help='specify radius of GMM by this number. ', type=int, default=2)
+                        help='specify radius of GMM by this number. default value is 2 ', type=int, default=2)
+    parser.add_argument('-lam',
+                        help='specify lambda of feature matching Loss by this number. default value is 0, so don\'t use feature matching ', type=int, default=0)
     parser.add_argument('-V', '--version', version='%(prog)s 1.0.0',
                         action='version',
                         default=False)
@@ -60,11 +65,17 @@ if __name__ == '__main__':
     if not out.exists():
         out.mkdir()
 
+    # 引数(ハイパーパラメータの設定)の書き出し
+    with open(out / "args.txt", "w") as f:
+        f.write(str(args))
+
     print('GPU: {}'.format(gpu))
     print('# Dara size: {}'.format(datasize))
     print('# Minibatch-size: {}'.format(batch_size))
     print('# n_hidden: {}'.format(n_hidden))
+    print('# BN: {}'.format(args.batch_norm))
     print('# epoch: {}'.format(epoch))
+    print('# lambda: {}'.format(args.lam))
     print('# out: {}'.format(out))
 
     # import discrimination
@@ -77,14 +88,18 @@ if __name__ == '__main__':
         from discriminator_md import Discriminator
         from updater import DCGANUpdater
     elif args.discriminator == 2:
-        print("# Discriminator applied matching")
+        print("# Discriminator applied feature matching")
         from discriminator_fm import Discriminator
         from updater_fm import DCGANUpdater
-
     print('')
 
+    # fix random
+    np.random.seed(seed)
+    if chainer.backends.cuda.available:
+        chainer.backends.cuda.cupy.random.seed(seed)
+
     # Set up a neural network to train
-    gen = Generator(n_hidden=n_hidden)
+    gen = Generator(n_hidden=n_hidden, isBN=args.batch_norm)
     dis = Discriminator()
 
     if gpu >= 0:
@@ -94,7 +109,7 @@ if __name__ == '__main__':
         dis.to_gpu()
 
     # Setup an optimizer
-    def make_optimizer(model, alpha=0.0002, beta1=0.5):
+    def make_optimizer(model, alpha=1e-4, beta1=0.5):
         optimizer = chainer.optimizers.Adam(alpha=alpha, beta1=beta1)
         optimizer.setup(model)
         # optimizer.add_hook(chainer.optimizer.WeightDecay(0.0001), 'hook_dec')
@@ -114,15 +129,27 @@ if __name__ == '__main__':
     train_iter = chainer.iterators.SerialIterator(dataset, batch_size)
 
     # Set up a trainer
-    updater = DCGANUpdater(
-        models=(gen, dis),
-        iterator=train_iter,
-        optimizer={
-            'gen': opt_gen,
-            'dis': opt_dis
-        },
-        scale=args.radius,
-        device=gpu)
+    if args.discriminator == 2:
+        updater = DCGANUpdater(
+            models=(gen, dis),
+            iterator=train_iter,
+            optimizer={
+                'gen': opt_gen,
+                'dis': opt_dis
+            },
+            scale=args.radius,
+            device=gpu,
+            lam=args.lam)
+    else:
+        updater = DCGANUpdater(
+            models=(gen, dis),
+            iterator=train_iter,
+            optimizer={
+                'gen': opt_gen,
+                'dis': opt_dis
+            },
+            scale=args.radius,
+            device=gpu)
     trainer = training.Trainer(updater, (epoch, 'epoch'), out=out)
 
     snapshot_interval = (5, 'epoch')
@@ -154,9 +181,9 @@ if __name__ == '__main__':
             ['gen/loss', 'dis/loss'],
             x_key='epoch',
             file_name='loss_{0}_{1}.jpg'.format(number, seed),
-            grid=True))
+            grid=False))
     trainer.extend(out_generated(
-        gen, seed, out, radius=args.radius, datasize=10000))
+        gen, seed+10, out, radius=args.radius, datasize=10000))
 
     # Run the training
     trainer.run()

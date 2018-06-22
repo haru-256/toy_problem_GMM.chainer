@@ -25,16 +25,21 @@ class Discriminator(chainer.Chain):
         super(Discriminator, self).__init__()
         with self.init_scope():
             # initializers
-            w = chainer.initializers.HeNormal(wscale)
-
+            # w = chainer.initializers.HeNormal(wscale)
+            w = chainer.initializers.Normal(wscale)
+            b = chainer.initializers.Normal(wscale)
             # register layer with variable
-            self.l0 = L.Linear(in_size=None, out_size=128, initialW=w)
-            self.l1 = L.Linear(in_size=None, out_size=1, initialW=w)
+            self.l0 = L.Linear(in_size=None, out_size=128,
+                               initialW=w, initial_bias=b)
+            # self.l1 = L.Linear(in_size=None, out_size=128, initialW=w)
+            self.l1 = L.Linear(in_size=None, out_size=1,
+                               initialW=w, initial_bias=b)
 
-            self.bn1 = L.BatchNormalization(size=128)
+            # self.bn1 = L.BatchNormalization(size=128)
 
     def __call__(self, x):
-        h = F.relu(self.l0(x))
+        h = F.leaky_relu(self.l0(x))
+        # h = F.leaky_relu(self.l1(h))
         logits = self.l1(h)
 
         return logits
